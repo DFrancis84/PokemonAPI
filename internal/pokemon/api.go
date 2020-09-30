@@ -19,63 +19,16 @@ type API struct {
 	Client *http.Client
 }
 
-type Stat struct {
-	Name   string
-	Height int
-	Weight int
-}
-
-type Stats struct {
-	Pokemon      []string
-	AllHeights   []float64
-	AllWeights   []float64
-	MeanHeight   float64
-	MeanWeight   float64
-	MedianHeight float64
-	MedianWeight float64
-	ModeHeight   []float64
-	ModeWeight   []float64
-}
-
 func New() *API {
 	client := &http.Client{}
 	return &API{Client: client}
 }
 
-func (api *API) GetStat(name string) *Stat {
-	var result types.Result
-
-	url := fmt.Sprintf("%v/%v", apiURL, name)
-
-	res, err := api.Client.Get(url)
-	if err != nil {
-		fmt.Printf("Error getting response from API: %v", err)
-	}
-
-	body, _ := ioutil.ReadAll(res.Body)
-
-	defer res.Body.Close()
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	return &Stat{
-		Name:   result.Name,
-		Height: result.Height,
-		Weight: result.Weight,
-	}
-}
-
-func (api *API) GetStats(names []string) *Stats {
-	var meanHeight, meanWeight, medianHeight, medianWeight float64
-	var modeHeight, modeWeight []float64
-	var result types.Result
-
-	heights := []float64{}
-	weights := []float64{}
+func (api *API) GetBios(names []string) []types.Pokemon {
+	bios := []types.Pokemon{}
 
 	for _, x := range names {
+		var pokemon types.Pokemon
 		url := fmt.Sprintf("%v/%v", apiURL, x)
 
 		res, err := api.Client.Get(url)
@@ -86,31 +39,43 @@ func (api *API) GetStats(names []string) *Stats {
 		body, _ := ioutil.ReadAll(res.Body)
 
 		defer res.Body.Close()
-		err = json.Unmarshal(body, &result)
+		err = json.Unmarshal(body, &pokemon)
 		if err != nil {
 			fmt.Println(err)
 		}
-
-		heights = append(heights, float64(result.Height))
-		weights = append(weights, float64(result.Weight))
+		bios = append(bios, pokemon)
 	}
 
-	meanHeight, meanWeight = getMean(heights, weights)
-	medianHeight, medianWeight = getMedian(heights, weights)
-	modeHeight, modeWeight = getMode(heights, weights)
+	return bios
+}
 
-	return &Stats{
-		Pokemon:      names,
-		AllHeights:   heights,
-		AllWeights:   weights,
-		MedianHeight: medianHeight,
-		MedianWeight: medianWeight,
-		MeanHeight:   meanHeight,
-		MeanWeight:   meanWeight,
-		ModeHeight:   modeHeight,
-		ModeWeight:   modeWeight,
+func (api *API) GetStats(names []string) types.Stats {
+	stats := types.Stats{}
+
+	for _, x := range names {
+		var pokemon types.Pokemon
+		url := fmt.Sprintf("%v/%v", apiURL, x)
+
+		res, err := api.Client.Get(url)
+		if err != nil {
+			fmt.Printf("Error getting response from API: %v", err)
+		}
+		body, _ := ioutil.ReadAll(res.Body)
+
+		defer res.Body.Close()
+		err = json.Unmarshal(body, &pokemon)
+		if err != nil {
+			fmt.Println(err)
+		}
+		stats.AllHeights = append(stats.AllHeights, float64(pokemon.Height))
+		stats.AllWeights = append(stats.AllWeights, float64(pokemon.Weight))
 	}
 
+	stats.MeanHeight, stats.MeanWeight = getMean(stats.AllHeights, stats.AllWeights)
+	stats.MedianHeight, stats.MedianWeight = getMedian(stats.AllHeights, stats.AllWeights)
+	stats.ModeHeight, stats.ModeWeight = getMode(stats.AllHeights, stats.AllWeights)
+
+	return stats
 }
 
 func getMedian(heights, weights []float64) (float64, float64) {
